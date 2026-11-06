@@ -12,6 +12,7 @@
 import { createIsolationState } from './lib/state.js'
 import {
   isolatedSessionsApi,
+  patchFs,
   patchRegistry,
   patchSessionCreate,
   patchWorkingDirectory,
@@ -23,7 +24,7 @@ import { registerIsolationTool } from './lib/tool.js'
 import { registerCommands } from './lib/command.js'
 import { registerWebRoutes } from './lib/web.js'
 
-export const inject = ['sessionController', 'workspaceRegistry', 'tools', 'commands', 'sessions', 'workingDirectory']
+export const inject = ['sessionController', 'workspaceRegistry', 'tools', 'commands', 'sessions', 'workingDirectory', 'fs']
 
 async function apply(ctx) {
   const iso = createIsolationState(ctx)
@@ -31,6 +32,7 @@ async function apply(ctx) {
   const unpatchRegistry = patchRegistry(ctx.root?.workspaceRegistry ?? ctx.workspaceRegistry, iso)
   const unpatchCreate = patchSessionCreate(ctx, iso)
   const unpatchWorkingDirectory = patchWorkingDirectory(ctx, iso)
+  const unpatchFs = patchFs(ctx, iso)
 
   const api = isolatedSessionsApi(ctx, iso)
   const provideIsolation = ctx.provide('isolatedSessions', api)
@@ -72,6 +74,7 @@ async function apply(ctx) {
     unregisterTool()
     provideScratch()
     provideIsolation()
+    unpatchFs()
     unpatchWorkingDirectory()
     unpatchCreate()
     unpatchRegistry()

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, rm, writeFile, utimes } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, rm, writeFile, utimes } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -96,6 +96,34 @@ test('cleanOrphans retains active session directories', async () => {
     })
 
     assert.equal(cleaned.length, 0)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('cleanOrphans merges and cleans pre-rename duplicate directories when titled folder exists', async () => {
+  const root = await stage()
+  try {
+    const titledDir = join(root, 'session-SVG-18d34aa8')
+    const preRenameDir = join(root, 'session-18d34aa8')
+    await mkdir(titledDir)
+    await mkdir(preRenameDir)
+
+    // Write file in preRenameDir
+    await writeFile(join(preRenameDir, 'pelican.svg'), '<svg></svg>')
+
+    const cleaned = await cleanOrphans({
+      roots: [root],
+      knownSessionIds: new Set(['session-18d34aa8-1234']),
+      now: Date.now(),
+    })
+
+    assert.equal(cleaned.length, 1)
+    assert.equal(cleaned[0].reason, 'pre-rename-duplicate')
+
+    // Verify pelican.svg was moved to titledDir
+    const moved = await readFile(join(titledDir, 'pelican.svg'), 'utf8')
+    assert.equal(moved, '<svg></svg>')
   } finally {
     await rm(root, { recursive: true, force: true })
   }

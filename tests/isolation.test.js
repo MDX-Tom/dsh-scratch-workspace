@@ -16,6 +16,7 @@ import {
 } from '../lib/isolate.js'
 import { createIsolationState } from '../lib/state.js'
 import {
+  patchFs,
   patchRegistry,
   patchSessionCreate,
   patchWorkingDirectory,
@@ -358,6 +359,50 @@ test('patchWorkingDirectory and renameSessionDirToTitle sync live working direct
     assert.equal(await fakeWd.ensure({ session: fakeSession }), targetDir)
 
     unpatchWd()
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('patchFs rewrites pre-rename session directories so tools write into renamed directory', async () => {
+  const root = await stage()
+  try {
+    const oldDir = join(root, 'session-d83adb64')
+    const targetDir = join(root, 'session-SVG-绘制鹈鹕-18d34aa8')
+    await mkdir(targetDir, { recursive: true })
+
+    const iso = {
+      rewritePath(p) {
+        if (p === oldDir) return targetDir
+        if (p.startsWith(oldDir + '/')) return targetDir + p.slice(oldDir.length)
+        return p
+      },
+    }
+
+    const fakeFs = {
+      async resolve(path, options) {
+        return { displayPath: path, path }
+      },
+    }
+
+    const fakeCtx = {
+      get(name) {
+        if (name === 'fs') return fakeFs
+        return undefined
+      },
+    }
+
+    const unpatchFs = patchFs(fakeCtx, iso)
+
+    // Old path passed by model tool call
+    const oldFilePath = join(oldDir, 'pelican-bicycle.svg')
+    const resolved = await fakeFs.resolve(oldFilePath)
+
+    // Must be translated directly to targetDir
+    const expectedFilePath = join(targetDir, 'pelican-bicycle.svg')
+    assert.equal(resolved.path, expectedFilePath)
+
+    unpatchFs()
   } finally {
     await rm(root, { recursive: true, force: true })
   }
