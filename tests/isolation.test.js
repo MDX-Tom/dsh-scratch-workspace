@@ -14,13 +14,11 @@ import {
   setIsolated,
   MARKER_NAME,
 } from '../lib/isolate.js'
-import { createIsolationState } from '../lib/state.js'
 import {
   patchFs,
   patchRegistry,
   patchSessionCreate,
   patchWorkingDirectory,
-  isolatedSessionsApi,
   renameSessionDirToTitle,
 } from '../lib/patch.js'
 

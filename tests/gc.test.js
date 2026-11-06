@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import {
-  isDirectoryEmpty, cleanOrphans, shortSessionId, removeSessionDir,
+  isDirectoryEmpty, cleanOrphans, shortSessionId,
 } from '../lib/gc.js'
 
 async function stage() {
