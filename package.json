@@ -1,6 +1,6 @@
 {
   "name": "dsh-scratch-workspace",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "DeepSeek Harness 瞬态会话隔离与草稿清理插件 — 顺应官方原生工作区规范的会话沙箱隔离、侧边栏归集与磁盘生命周期自动清理",
   "author": "Mi Tom <6468993+MDX-Tom@users.noreply.github.com>",
   "license": "MIT",
