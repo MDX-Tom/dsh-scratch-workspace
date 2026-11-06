@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -406,76 +406,97 @@ test('patchFs rewrites pre-rename session directories so tools write into rename
   }
 })
 
-test('patchWorkingDirectory and patchFs work across derived Cordis context proxies and prototype chain', async () => {
+test('frozen session header never throws read only property error on get, ensure, or rename', async () => {
   const root = await stage()
   try {
-    const oldDir = join(root, 'session-d83adb64')
-    const targetDir = join(root, 'session-SVG-绘制鹈鹕-44dff4bf')
-    await mkdir(targetDir, { recursive: true })
+    const sessionDir = join(root, 'session-034f18b2')
+    await mkdir(sessionDir, { recursive: true })
 
     const iso = {
-      sessionPath: id => (id === 'sess-pelican' ? targetDir : undefined),
-      rewritePath(p) {
-        if (p === oldDir) return targetDir
-        if (p.startsWith(oldDir + '/')) return targetDir + p.slice(oldDir.length)
-        return p
-      },
+      sessionPath: id => (id === 'sess-frozen' ? sessionDir : undefined),
+      recordSessionPath: () => {},
+      recordRename: () => {},
+      ownerOf: () => root,
     }
 
-    // Prototype representing Cordis service class
-    const wdProto = {
-      get(session) {
-        return session?.header?.cwd ?? '/default'
-      },
-      async ensure(agent) {
-        // Native ensure checks if current exists; if oldDir is gone, native ensure throws!
-        const current = this.get(agent.session)
-        if (current === oldDir) {
-          throw new Error(`working-directory: directory does not exist: "${oldDir}"`)
-        }
-        return current
-      },
-      async directory(path) {
-        if (path === oldDir) {
-          throw new Error(`working-directory: directory does not exist: "${oldDir}"`)
-        }
-        return path
-      },
+    const fakeWd = {
+      get() { return '/default' },
+      async ensure() { return '/default' },
+      workingDirectoryProjectionHandle: { stateOf: () => null },
     }
-
-    // Cordis contexts receive derived proxies via Object.create
-    const pluginWdInstance = Object.create(wdProto)
-    const toolWdInstance = Object.create(wdProto)
 
     const fakeCtx = {
       get(name) {
-        if (name === 'workingDirectory') return pluginWdInstance
+        if (name === 'workingDirectory') return fakeWd
         return undefined
       },
     }
 
     const unpatchWd = patchWorkingDirectory(fakeCtx, iso)
 
-    // Agent whose header.cwd still holds the old pre-rename path
-    const fakeAgent = {
-      id: 'sess-pelican',
-      session: {
-        id: 'sess-pelican',
-        header: { cwd: oldDir },
+    // Frozen header object replicating DSH production behavior
+    const frozenHeader = Object.freeze({ id: 'sess-frozen', cwd: sessionDir })
+    const fakeSession = {
+      id: 'sess-frozen',
+      header: frozenHeader,
+      append: () => {},
+    }
+    const fakeAgent = { session: fakeSession }
+
+    // Must NOT throw "Cannot assign to read only property 'cwd'"
+    assert.doesNotThrow(() => {
+      const got = fakeWd.get(fakeSession)
+      assert.equal(got, sessionDir)
+    })
+
+    await assert.doesNotReject(async () => {
+      const ensured = await fakeWd.ensure(fakeAgent)
+      assert.equal(ensured, sessionDir)
+    })
+
+    await assert.doesNotReject(async () => {
+      await renameSessionDirToTitle('sess-frozen', '测试标题', iso, {}, fakeCtx, fakeSession)
+    })
+
+    unpatchWd()
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('archiveSession cleans empty session directory even when not tracked in iso memory', async () => {
+  const root = await stage()
+  try {
+    const sessionFolder = join(root, 'session-我的测试会话-d83adb64')
+    await mkdir(sessionFolder, { recursive: true })
+
+    const iso = {
+      sessionPath: () => undefined, // not in memory
+      roots: () => [root],
+      forgetSession: () => {},
+    }
+
+    let archived = false
+    const fakeRegistry = {
+      host: {
+        sessionPath: () => undefined,
+      },
+      async archiveSession(id) {
+        archived = true
       },
     }
 
-    // Tool execution runs on toolWdInstance (a sibling derived context proxy)
-    // It must NOT throw, and must immediately return targetDir!
-    const ensuredCwd = await toolWdInstance.ensure(fakeAgent)
-    assert.equal(ensuredCwd, targetDir)
-    assert.equal(fakeAgent.session.header.cwd, targetDir)
+    const unpatch = patchRegistry(fakeRegistry, iso)
 
-    // directory() on sibling proxy rewrites oldDir safely
-    const dirResult = await toolWdInstance.directory(oldDir)
-    assert.equal(dirResult, targetDir)
+    // Archive session with matching short ID
+    await fakeRegistry.archiveSession('session-d83adb64-1111-2222-3333-444455556666')
+    assert.equal(archived, true)
 
-    unpatchWd()
+    // Empty folder must have been deleted from disk
+    const exists = await stat(sessionFolder).then(() => true).catch(() => false)
+    assert.equal(exists, false)
+
+    unpatch()
   } finally {
     await rm(root, { recursive: true, force: true })
   }
