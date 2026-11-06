@@ -16,7 +16,7 @@ import { registerIsolationTool } from './lib/tool.js'
 import { registerCommands } from './lib/command.js'
 import { registerWebRoutes } from './lib/web.js'
 
-export const inject = ['sessionController', 'workspaceRegistry', 'tools', 'commands']
+export const inject = ['sessionController', 'workspaceRegistry', 'tools', 'commands', 'sessions']
 
 async function apply(ctx) {
   const iso = createIsolationState(ctx)
