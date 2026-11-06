@@ -405,3 +405,78 @@ test('patchFs rewrites pre-rename session directories so tools write into rename
     await rm(root, { recursive: true, force: true })
   }
 })
+
+test('patchWorkingDirectory and patchFs work across derived Cordis context proxies and prototype chain', async () => {
+  const root = await stage()
+  try {
+    const oldDir = join(root, 'session-d83adb64')
+    const targetDir = join(root, 'session-SVG-绘制鹈鹕-44dff4bf')
+    await mkdir(targetDir, { recursive: true })
+
+    const iso = {
+      sessionPath: id => (id === 'sess-pelican' ? targetDir : undefined),
+      rewritePath(p) {
+        if (p === oldDir) return targetDir
+        if (p.startsWith(oldDir + '/')) return targetDir + p.slice(oldDir.length)
+        return p
+      },
+    }
+
+    // Prototype representing Cordis service class
+    const wdProto = {
+      get(session) {
+        return session?.header?.cwd ?? '/default'
+      },
+      async ensure(agent) {
+        // Native ensure checks if current exists; if oldDir is gone, native ensure throws!
+        const current = this.get(agent.session)
+        if (current === oldDir) {
+          throw new Error(`working-directory: directory does not exist: "${oldDir}"`)
+        }
+        return current
+      },
+      async directory(path) {
+        if (path === oldDir) {
+          throw new Error(`working-directory: directory does not exist: "${oldDir}"`)
+        }
+        return path
+      },
+    }
+
+    // Cordis contexts receive derived proxies via Object.create
+    const pluginWdInstance = Object.create(wdProto)
+    const toolWdInstance = Object.create(wdProto)
+
+    const fakeCtx = {
+      get(name) {
+        if (name === 'workingDirectory') return pluginWdInstance
+        return undefined
+      },
+    }
+
+    const unpatchWd = patchWorkingDirectory(fakeCtx, iso)
+
+    // Agent whose header.cwd still holds the old pre-rename path
+    const fakeAgent = {
+      id: 'sess-pelican',
+      session: {
+        id: 'sess-pelican',
+        header: { cwd: oldDir },
+      },
+    }
+
+    // Tool execution runs on toolWdInstance (a sibling derived context proxy)
+    // It must NOT throw, and must immediately return targetDir!
+    const ensuredCwd = await toolWdInstance.ensure(fakeAgent)
+    assert.equal(ensuredCwd, targetDir)
+    assert.equal(fakeAgent.session.header.cwd, targetDir)
+
+    // directory() on sibling proxy rewrites oldDir safely
+    const dirResult = await toolWdInstance.directory(oldDir)
+    assert.equal(dirResult, targetDir)
+
+    unpatchWd()
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
