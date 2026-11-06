@@ -249,7 +249,7 @@ test('patchRegistry archiveSession removes empty session directory', async () =>
   }
 })
 
-test('renameSessionDirToTitle renames directory and maintains symlink compatibility', async () => {
+test('renameSessionDirToTitle directly renames directory without creating symlinks', async () => {
   const root = await stage()
   try {
     const sessionDir = join(root, 'session-d83adb64')
@@ -272,13 +272,15 @@ test('renameSessionDirToTitle renames directory and maintains symlink compatibil
 
     const expectedName = 'session-调整-DeepSeek-网页搜索超时-sess1'
     const targetDir = join(root, expectedName)
-    const { existsSync, readFileSync, lstatSync } = await import('node:fs')
+    const { existsSync, readFileSync } = await import('node:fs')
 
+    // Target directory exists with contents preserved
     assert.equal(existsSync(targetDir), true)
     assert.equal(readFileSync(join(targetDir, 'test.txt'), 'utf8'), 'content')
-    // Legacy path should be a symlink
-    assert.equal(lstatSync(sessionDir).isSymbolicLink(), true)
-    assert.equal(readFileSync(join(sessionDir, 'test.txt'), 'utf8'), 'content')
+
+    // Old path is directly renamed — no leftover alias / symlink!
+    assert.equal(existsSync(sessionDir), false)
+
     assert.equal(recorded, targetDir)
     assert.equal(remembered, targetDir)
   } finally {
