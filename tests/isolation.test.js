@@ -5,10 +5,22 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import {
-  allocateSessionDir, containingRoots, isIsolated, owningRoot, setIsolated, MARKER_NAME,
+  allocateSessionDir,
+  containingRoots,
+  isIsolated,
+  isMeaningfulTitle,
+  owningRoot,
+  sanitizeTitleForPath,
+  setIsolated,
+  MARKER_NAME,
 } from '../lib/isolate.js'
 import { createIsolationState } from '../lib/state.js'
-import { patchRegistry, patchSessionCreate, isolatedSessionsApi } from '../lib/patch.js'
+import {
+  patchRegistry,
+  patchSessionCreate,
+  isolatedSessionsApi,
+  renameSessionDirToTitle,
+} from '../lib/patch.js'
 
 async function stage() {
   return await mkdtemp(join(tmpdir(), 'dsh-test-'))
@@ -165,6 +177,110 @@ test('patchSessionCreate avoids ApiSessionCwdConflict when reusing blank session
     // Our wrapper should have omitted sessionId so new one was minted
     assert.equal(res.sessionId, 'session-minted-new')
     unpatch()
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('sanitizeTitleForPath and isMeaningfulTitle filter and validate titles', () => {
+  assert.equal(sanitizeTitleForPath('调整 DeepSeek 网页搜索超时'), '调整-DeepSeek-网页搜索超时')
+  assert.equal(sanitizeTitleForPath('Test / Slash : Colon * Star'), 'Test-Slash-Colon-Star')
+  assert.equal(isMeaningfulTitle('新会话'), false)
+  assert.equal(isMeaningfulTitle('New Session'), false)
+  assert.equal(isMeaningfulTitle('调整 DeepSeek 网页搜索超时'), true)
+})
+
+test('allocateSessionDir reuses empty draft directory instead of adding -2', async () => {
+  const root = await stage()
+  try {
+    const isDirEmpty = async (dir) => {
+      const { readdir } = await import('node:fs/promises')
+      const entries = await readdir(dir)
+      return entries.length === 0
+    }
+    // First allocation
+    const dir1 = await allocateSessionDir(root, 'session-d83adb64-1111', isDirEmpty)
+    assert.match(dir1, /session-d83adb64$/)
+
+    // Second allocation with same draft ID when dir1 is completely empty should reuse dir1
+    const dir2 = await allocateSessionDir(root, 'session-d83adb64-1111', isDirEmpty)
+    assert.equal(dir2, dir1)
+
+    // If dir1 now has a file, second allocation should allocate suffix -2
+    await writeFile(join(dir1, 'test.txt'), 'hello')
+    const dir3 = await allocateSessionDir(root, 'session-d83adb64-1111', isDirEmpty)
+    assert.match(dir3, /session-d83adb64-2$/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('patchRegistry archiveSession removes empty session directory', async () => {
+  const root = await stage()
+  try {
+    const sessionDir = join(root, 'session-empty01')
+    await mkdir(sessionDir)
+
+    let archived = null
+    const fakeRegistry = {
+      host: {},
+      async archiveSession(id) {
+        archived = id
+      },
+    }
+
+    const iso = {
+      roots: () => [root],
+      ownerOf: p => (p?.startsWith(root) ? root : undefined),
+      sessionPath: id => (id === 'sess-empty' ? sessionDir : undefined),
+      forgetSession: () => {},
+    }
+
+    const unpatch = patchRegistry(fakeRegistry, iso)
+    await fakeRegistry.archiveSession('sess-empty')
+    assert.equal(archived, 'sess-empty')
+
+    // Directory should have been removed because it was empty
+    const { existsSync } = await import('node:fs')
+    assert.equal(existsSync(sessionDir), false)
+    unpatch()
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('renameSessionDirToTitle renames directory and maintains symlink compatibility', async () => {
+  const root = await stage()
+  try {
+    const sessionDir = join(root, 'session-d83adb64')
+    await mkdir(sessionDir)
+    await writeFile(join(sessionDir, 'test.txt'), 'content')
+
+    let recorded = null
+    const iso = {
+      sessionPath: id => (id === 'sess-1' ? sessionDir : undefined),
+      ownerOf: p => (p?.startsWith(root) ? root : undefined),
+      recordSessionPath: (id, path) => { recorded = path },
+    }
+
+    let remembered = null
+    const fakeRegistry = {
+      rememberSessionPath: (id, path) => { remembered = path },
+    }
+
+    await renameSessionDirToTitle('sess-1', '调整 DeepSeek 网页搜索超时', iso, fakeRegistry)
+
+    const expectedName = 'session-调整-DeepSeek-网页搜索超时-sess1'
+    const targetDir = join(root, expectedName)
+    const { existsSync, readFileSync, lstatSync } = await import('node:fs')
+
+    assert.equal(existsSync(targetDir), true)
+    assert.equal(readFileSync(join(targetDir, 'test.txt'), 'utf8'), 'content')
+    // Legacy path should be a symlink
+    assert.equal(lstatSync(sessionDir).isSymbolicLink(), true)
+    assert.equal(readFileSync(join(sessionDir, 'test.txt'), 'utf8'), 'content')
+    assert.equal(recorded, targetDir)
+    assert.equal(remembered, targetDir)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

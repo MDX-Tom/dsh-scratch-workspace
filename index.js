@@ -10,7 +10,13 @@
  */
 
 import { createIsolationState } from './lib/state.js'
-import { isolatedSessionsApi, patchRegistry, patchSessionCreate } from './lib/patch.js'
+import {
+  isolatedSessionsApi,
+  patchRegistry,
+  patchSessionCreate,
+  renameSessionDirToTitle,
+} from './lib/patch.js'
+import { isMeaningfulTitle } from './lib/isolate.js'
 import { setupAutoGc } from './lib/gc.js'
 import { registerIsolationTool } from './lib/tool.js'
 import { registerCommands } from './lib/command.js'
@@ -38,6 +44,16 @@ async function apply(ctx) {
     void iso.scan().catch(() => {})
   })
 
+  const stopTitleEvents = ctx.on('session/event', async (session, event) => {
+    if (event?.type !== 'session/title') return
+    const title = event?.data?.title
+    if (!isMeaningfulTitle(title)) return
+    const sessionId = session?.id
+    if (!sessionId) return
+    const reg = ctx.root?.workspaceRegistry ?? ctx.workspaceRegistry
+    await renameSessionDirToTitle(sessionId, title, iso, reg)
+  })
+
   const webServer = ctx.get('webServer', false)
   const offRoutes = webServer === undefined ? undefined : registerWebRoutes(ctx, webServer, iso)
 
@@ -47,6 +63,7 @@ async function apply(ctx) {
 
   ctx.effect(() => () => {
     offRoutes?.()
+    stopTitleEvents?.()
     stopWatching()
     stopGc()
     unregisterCommands()
