@@ -1,0 +1,47 @@
+{
+  "name": "dsh-scratch-workspace",
+  "version": "0.1.0",
+  "description": "DeepSeek Harness 瞬态会话隔离与草稿清理插件 — 顺应官方原生工作区规范的会话沙箱隔离、侧边栏归集与磁盘生命周期自动清理",
+  "license": "MIT",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "lib",
+    "locale",
+    "docs",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test \"tests/*.test.js\""
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
+    }
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "deepseek",
+    "cordis",
+    "session-isolation",
+    "scratch-workspace",
+    "sandbox",
+    "garbage-collection"
+  ]
+}

@@ -1,0 +1,4 @@
+# dsh-scratch-workspace bundle patch
+- insert:
+    - id: scratch-workspace
+      name: dsh-scratch-workspace
