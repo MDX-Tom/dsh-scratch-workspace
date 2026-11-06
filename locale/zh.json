@@ -1,4 +1,9 @@
 {
   "name": "瞬态草稿工作区与会话隔离",
-  "description": "DeepSeek Harness 瞬态会话隔离与草稿清理插件 — 顺应官方原生工作区规范的会话沙箱隔离、侧边栏归集与磁盘生命周期自动清理"
+  "description": "DeepSeek Harness 瞬态会话隔离与草稿清理插件 — 顺应官方原生工作区规范的会话沙箱隔离、侧边栏归集与磁盘生命周期自动清理",
+  "meta": {
+    "title": "瞬态草稿工作区 (dsh-scratch-workspace)",
+    "description": "DeepSeek Harness 瞬态会话隔离与草稿清理插件 — 顺应官方原生工作区规范的会话沙箱隔离、侧边栏归集与磁盘生命周期自动清理",
+    "detail": "docs/DETAIL.zh.md"
+  }
 }

@@ -1,4 +1,9 @@
 {
   "name": "Ephemeral Scratch Workspace & Session Isolation",
-  "description": "Per-session sandbox working directories, permanent version compatibility, sidebar grouping, and automatic disk GC for DeepSeek Harness (DSH)."
+  "description": "Per-session sandbox working directories, permanent version compatibility, sidebar grouping, and automatic disk GC for DeepSeek Harness (DSH).",
+  "meta": {
+    "title": "Ephemeral Scratch Workspace",
+    "description": "Per-session sandbox working directories, permanent version compatibility, sidebar grouping, and automatic disk GC for DeepSeek Harness (DSH).",
+    "detail": "docs/DETAIL.zh.md"
+  }
 }

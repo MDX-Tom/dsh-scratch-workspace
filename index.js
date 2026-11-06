@@ -13,9 +13,10 @@ import { createIsolationState } from './lib/state.js'
 import { isolatedSessionsApi, patchRegistry, patchSessionCreate } from './lib/patch.js'
 import { setupAutoGc } from './lib/gc.js'
 import { registerIsolationTool } from './lib/tool.js'
+import { registerCommands } from './lib/command.js'
 import { registerWebRoutes } from './lib/web.js'
 
-export const inject = ['sessionController', 'workspaceRegistry', 'tools']
+export const inject = ['sessionController', 'workspaceRegistry', 'tools', 'commands']
 
 async function apply(ctx) {
   const iso = createIsolationState(ctx)
@@ -28,6 +29,7 @@ async function apply(ctx) {
   const provideScratch = ctx.provide('scratchWorkspace', api)
 
   const unregisterTool = registerIsolationTool(ctx, iso)
+  const unregisterCommands = registerCommands(ctx, iso, api)
   const stopGc = setupAutoGc(ctx, iso)
 
   await iso.scan()
@@ -47,6 +49,7 @@ async function apply(ctx) {
     offRoutes?.()
     stopWatching()
     stopGc()
+    unregisterCommands()
     unregisterTool()
     provideScratch()
     provideIsolation()

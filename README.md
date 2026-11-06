@@ -110,16 +110,22 @@ dsh plugin --profile desktop add https://github.com/MDX-Tom/dsh-scratch-workspac
 
 隔离状态以工作区目录内的 `.dsh-isolate` 标记文件作为持久化依据，设置随目录移动，也可在以下入口灵活控制：
 
-1. **Web GUI 设置面板**：
-   进入 **设置 → 插件 → 工作区隔离与清理**，可一览所有工作区的隔离状态，一键开关，或点击 **“立即清理磁盘孤儿目录”** 执行 GC。
-2. **对话内指令 / Tool**：
-   直接对 Agent 提问调用 `session_isolation` 工具：
+1. **对话内 Slash 命令**：
+   在聊天输入框键入 `/scratch` 或 `/isolate` 即可调出交互命令，支持：
+   - `/scratch status`：查看当前工作区隔离状态与草稿目录信息
+   - `/scratch enable`：为当前工作区开启沙箱隔离（写入 `.dsh-isolate`）
+   - `/scratch disable`：关闭隔离
+   - `/scratch gc`：立即执行磁盘垃圾清理，回收空闲与孤儿会话目录
+2. **默认工作区自动开启**：
+   默认工作区 (`default-workspace`) 自动享受沙箱隔离与草稿清理效果，无需任何手动配置。
+3. **Agent 智能调用 (LLM Tool)**：
+   模型可自动调用 `session_isolation` 工具查看或切换隔离状态：
    - `action: "enable"`：为当前工作区开启隔离
    - `action: "disable"`：关闭隔离
    - `action: "status"`：查看当前目录隔离状态
    - `action: "gc"`：立即执行磁盘垃圾清理
-3. **默认工作区自动开启**：
-   无需任何操作，默认工作区 (`default-workspace`) 自动享受沙箱隔离与草稿清理效果。
+4. **插件详情与配置说明**：
+   在 DSH 侧边栏点击 **「插件」** → 选择 **dsh-scratch-workspace** 即可查看插件行为与自动清理机制摘要。
 
 ---
 
@@ -131,30 +137,6 @@ dsh plugin --profile desktop add https://github.com/MDX-Tom/dsh-scratch-workspac
 cd "dsh-scratch-workspace"
 node --test "tests/*.test.js"
 ```
-
----
-
-## 发布路线说明
-
-本插件支持多种发布路线：
-
-### 路线 A：GitHub 开源仓库发布（推荐，适合社区分享）
-1. 在 GitHub 上创建对应仓库 `dsh-scratch-workspace`。
-2. 将本地代码 push 到远端：
-   ```bash
-   git remote add origin https://github.com/<your-username>/dsh-scratch-workspace.git
-   git push -u origin main
-   ```
-3. 创建 Release Tag（例如 `v0.1.0`）。用户即可通过 GitHub URL 一键安装。
-
-### 路线 B：发布至 npm Registry（适合公开发布）
-1. 确保已登录 npm (`npm login`)。
-2. 运行 `npm publish --access public`。
-3. 用户可在任意 DSH profile 中直接执行 `pnpm add dsh-scratch-workspace` 安装。
-
-### 路线 C：官方插件市场提报 (Plugin Market Catalog)
-1. 将插件规范整理完毕后，向 DeepSeek Harness 官方市场插件清单提交 Pull Request。
-2. 用户可在 DSH 的内置“插件市场”中直接搜索并一键安装。
 
 ---
 
