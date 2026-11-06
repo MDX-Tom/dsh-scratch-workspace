@@ -14,6 +14,7 @@ import {
   isolatedSessionsApi,
   patchRegistry,
   patchSessionCreate,
+  patchWorkingDirectory,
   renameSessionDirToTitle,
 } from './lib/patch.js'
 import { isMeaningfulTitle } from './lib/isolate.js'
@@ -22,13 +23,14 @@ import { registerIsolationTool } from './lib/tool.js'
 import { registerCommands } from './lib/command.js'
 import { registerWebRoutes } from './lib/web.js'
 
-export const inject = ['sessionController', 'workspaceRegistry', 'tools', 'commands', 'sessions']
+export const inject = ['sessionController', 'workspaceRegistry', 'tools', 'commands', 'sessions', 'workingDirectory']
 
 async function apply(ctx) {
   const iso = createIsolationState(ctx)
 
   const unpatchRegistry = patchRegistry(ctx.root?.workspaceRegistry ?? ctx.workspaceRegistry, iso)
   const unpatchCreate = patchSessionCreate(ctx, iso)
+  const unpatchWorkingDirectory = patchWorkingDirectory(ctx, iso)
 
   const api = isolatedSessionsApi(ctx, iso)
   const provideIsolation = ctx.provide('isolatedSessions', api)
@@ -51,7 +53,7 @@ async function apply(ctx) {
     const sessionId = session?.id
     if (!sessionId) return
     const reg = ctx.root?.workspaceRegistry ?? ctx.workspaceRegistry
-    await renameSessionDirToTitle(sessionId, title, iso, reg)
+    await renameSessionDirToTitle(sessionId, title, iso, reg, ctx, session)
   })
 
   const webServer = ctx.get('webServer', false)
@@ -70,6 +72,7 @@ async function apply(ctx) {
     unregisterTool()
     provideScratch()
     provideIsolation()
+    unpatchWorkingDirectory()
     unpatchCreate()
     unpatchRegistry()
     iso.clear()

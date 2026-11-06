@@ -18,6 +18,7 @@ import { createIsolationState } from '../lib/state.js'
 import {
   patchRegistry,
   patchSessionCreate,
+  patchWorkingDirectory,
   isolatedSessionsApi,
   renameSessionDirToTitle,
 } from '../lib/patch.js'
@@ -283,6 +284,80 @@ test('renameSessionDirToTitle directly renames directory without creating symlin
 
     assert.equal(recorded, targetDir)
     assert.equal(remembered, targetDir)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('patchWorkingDirectory and renameSessionDirToTitle sync live working directory', async () => {
+  const root = await stage()
+  try {
+    const sessionDir = join(root, 'session-d83adb64')
+    await mkdir(sessionDir)
+
+    const events = []
+    const fakeSession = {
+      id: 'sess-sync-1',
+      append(type, data) {
+        events.push({ type, data })
+      },
+    }
+
+    const iso = {
+      roots: () => [root],
+      ownerOf: p => (p?.startsWith(root) ? root : undefined),
+      sessionPath: id => (id === 'sess-sync-1' ? sessionDir : undefined),
+      recordSessionPath: (id, path) => {
+        iso.sessionPath = (queryId) => (queryId === id ? path : undefined)
+      },
+    }
+
+    const fakeRegistry = {
+      rememberSessionPath: () => {},
+    }
+
+    const fakeWd = {
+      get(session) {
+        return sessionDir
+      },
+      async ensure(agent) {
+        return sessionDir
+      },
+      workingDirectoryProjectionHandle: {
+        stateOf: () => sessionDir,
+      },
+    }
+
+    const fakeCtx = {
+      get(name) {
+        if (name === 'workingDirectory') return fakeWd
+        return undefined
+      },
+      sessions: {
+        get: id => (id === 'sess-sync-1' ? fakeSession : undefined),
+      },
+    }
+
+    const unpatchWd = patchWorkingDirectory(fakeCtx, iso)
+
+    // Before rename: wd.get returns sessionDir
+    assert.equal(fakeWd.get(fakeSession), sessionDir)
+
+    // Now rename
+    await renameSessionDirToTitle('sess-sync-1', 'SVG 绘制鹈鹕骑自行车', iso, fakeRegistry, fakeCtx, fakeSession)
+
+    const targetDir = join(root, 'session-SVG-绘制鹈鹕骑自行车-sesssync')
+
+    // 1. Live session received working-directory/change event
+    assert.equal(events.length, 1)
+    assert.equal(events[0].type, 'working-directory/change')
+    assert.equal(events[0].data.cwd, targetDir)
+
+    // 2. Working directory get and ensure immediately return the new targetDir!
+    assert.equal(fakeWd.get(fakeSession), targetDir)
+    assert.equal(await fakeWd.ensure({ session: fakeSession }), targetDir)
+
+    unpatchWd()
   } finally {
     await rm(root, { recursive: true, force: true })
   }
