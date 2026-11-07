@@ -80,18 +80,38 @@ flowchart TD
 - 📂 **侧边栏清爽如初**：所有会话紧密附着于所属工作区，消除孤儿会话打扰。
 - 🧹 **磁盘常态零负担**：废弃临时目录自动清理，保持本地环境轻盈纯净。
 
+### 📸 视觉效果实测 / Visual Walkthrough
+
+| 物理沙箱隔离 (Finder 真实目录) | 侧边栏原生聚合 (DSH 界面) |
+| :---: | :---: |
+| <img src="https://raw.githubusercontent.com/MDX-Tom/dsh-scratch-workspace/main/assets/01-finder-isolated-folders.png" width="460" alt="Finder 目录隔离效果" /> | <img src="https://raw.githubusercontent.com/MDX-Tom/dsh-scratch-workspace/main/assets/02-sidebar-workspace-grouping.png" width="460" alt="侧边栏工作区归集效果" /> |
+| **底层物理隔离**：每个会话分配专属 `session-<标题>-<ID>` 子目录，改名实时就地同步，产物互不踩踏 | **顶层统一归集**：会话在侧边栏完整归属母工作区，拒绝臃肿碎片化，保持工作区清爽 |
+
+| 交互式斜杠指令 (Slash Command) | 即时状态看板与向导 (/scratch) |
+| :---: | :---: |
+| <img src="https://raw.githubusercontent.com/MDX-Tom/dsh-scratch-workspace/main/assets/03-slash-command-menu.png" width="460" alt="斜杠指令菜单" /><br/><br/><img src="https://raw.githubusercontent.com/MDX-Tom/dsh-scratch-workspace/main/assets/04-slash-command-args.png" width="460" alt="子命令提示" /> | <img src="https://raw.githubusercontent.com/MDX-Tom/dsh-scratch-workspace/main/assets/05-scratch-status-card.png" width="460" alt="即时状态看板" /> |
+| **开箱即用的指令交互**：输入 `/scratch` 自动补全，支持 `status`、`enable`、`disable` 与 `gc` | **状态一目了然**：清晰展示母工作区映射、会话沙箱物理路径与快捷运维向导 |
+
 ---
 
 ## 安装与使用
 
-### 方式一：从本地安装（开发调试）
+### 方式一：从 npm 安装（推荐）
+
+```bash
+dsh plugin add dsh-scratch-workspace
+# 或者通过 npm / pnpm
+pnpm add dsh-scratch-workspace
+```
+
+### 方式二：从本地安装（开发调试）
 
 在 DeepSeek Harness 所在配置 Profile 中添加本插件依赖（例如 `~/.dsh/profiles/desktop`）：
 
 ```bash
 # 1. 链接到你的 DSH Profile
 cd ~/.dsh/profiles/desktop
-pnpm add "link:/Users/midaxia/Documents/Projects/Codex Projects/dsh-plugins/dsh-scratch-workspace"
+pnpm add "link:/path/to/dsh-scratch-workspace"
 
 # 2. 将 "dsh-scratch-workspace" 添加到 package.json 中的 dsh.profile.bundles 列表
 
