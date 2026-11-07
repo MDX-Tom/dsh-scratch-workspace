@@ -87,10 +87,10 @@ flowchart TD
 | <img src="https://raw.githubusercontent.com/MDX-Tom/dsh-scratch-workspace/main/assets/01-finder-isolated-folders.png" width="460" alt="Finder 目录隔离效果" /> | <img src="https://raw.githubusercontent.com/MDX-Tom/dsh-scratch-workspace/main/assets/02-sidebar-workspace-grouping.png" width="460" alt="侧边栏工作区归集效果" /> |
 | **底层物理隔离**：每个会话分配专属 `session-<标题>-<ID>` 子目录，改名实时就地同步，产物互不踩踏 | **顶层统一归集**：会话在侧边栏完整归属母工作区，拒绝臃肿碎片化，保持工作区清爽 |
 
-| 交互式斜杠指令 (Slash Command) | 即时状态看板与向导 (/scratch) |
+| 交互式斜杠指令 (Slash Command) | ⭐ 即时状态看板与向导 (/scratch) |
 | :---: | :---: |
-| <img src="https://raw.githubusercontent.com/MDX-Tom/dsh-scratch-workspace/main/assets/03-slash-command-menu.png" width="460" alt="斜杠指令菜单" /><br/><br/><img src="https://raw.githubusercontent.com/MDX-Tom/dsh-scratch-workspace/main/assets/04-slash-command-args.png" width="460" alt="子命令提示" /> | <img src="https://raw.githubusercontent.com/MDX-Tom/dsh-scratch-workspace/main/assets/05-scratch-status-card.png" width="460" alt="即时状态看板" /> |
-| **开箱即用的指令交互**：输入 `/scratch` 自动补全，支持 `status`、`enable`、`disable` 与 `gc` | **状态一目了然**：清晰展示母工作区映射、会话沙箱物理路径与快捷运维向导 |
+| <img src="https://raw.githubusercontent.com/MDX-Tom/dsh-scratch-workspace/main/assets/03-slash-command-menu.png" width="240" alt="斜杠指令菜单" /><br/><br/><img src="https://raw.githubusercontent.com/MDX-Tom/dsh-scratch-workspace/main/assets/04-slash-command-args.png" width="240" alt="子命令提示" /> | <img src="https://raw.githubusercontent.com/MDX-Tom/dsh-scratch-workspace/main/assets/05-scratch-status-card.png" width="580" alt="即时状态看板" /> |
+| **开箱即用的指令交互**：输入 `/scratch` 自动补全，支持 `status`、`enable`、`disable` 与 `gc` | **状态一目了然（核心看板）**：清晰展示母工作区映射、会话沙箱物理路径与快捷运维向导 |
 
 ---
 
