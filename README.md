@@ -63,9 +63,14 @@
 
 ## 架构与技术原理
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/MDX-Tom/dsh-scratch-workspace/main/assets/architecture.png" width="340" alt="架构与技术原理流程图" />
-</p>
+```mermaid
+flowchart LR
+    Create["新建会话"] --> Check{"是否隔离?"}
+    Check -- 否 --> Native["原生创建流程"]
+    Check -- 是 --> Alloc["分配专属子沙箱<br/>session-xxx"]
+    Alloc --> Safe["微秒重定向 & 防冲突<br/>解绑 blank cwd"] --> Compat["双轨索引拦截<br/>挂靠母工作区"]
+    Compat --> Ready["沙箱安全写入<br/>侧边栏原生聚合"] -. 守护 .-> GC["常态生命周期 GC<br/>空闲清理 & 销毁即释"]
+```
 
 ### 核心方法与实现机制
 
