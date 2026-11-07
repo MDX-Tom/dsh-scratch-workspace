@@ -22,7 +22,7 @@
 
 ---
 
-## 为什么需要它（面向什么问题）
+## 插件用途
 
 在 DeepSeek Harness 日常开发中，同时运行多个会话或使用默认工作区即兴提问时，开发者普遍面临以下三大核心痛点：
 
@@ -42,21 +42,30 @@
 
 ---
 
-## 用什么方法（架构与技术原理）
+## 效果一览
 
-```mermaid
-flowchart TD
-    User["用户在工作区新建会话"] --> Controller["sessionController.create()"]
-    Controller --> Check{"检测是否为隔离工作区或默认工作区"}
-    Check -- 否 --> Native["原生创建流程"]
-    Check -- 是 --> Alloc["分配专属 session-<id> 沙箱子目录"]
-    Alloc --> SafeClaim["安全消除 blank 会话 cwd 认领冲突"]
-    SafeClaim --> TempRedirect["微秒级重定向 workspace.path & record"]
-    TempRedirect --> Attach["session 与 workspace 建立原生归集"]
-    Attach --> CompatIndex["兼容层索引拦截 (candidateMatches / sessionPath)"]
-    CompatIndex --> Ready["会话就绪：文件写入局限于子沙箱，侧边栏归属母工程"]
-    Ready --> GC["常态 GC 守护：空闲回收 + 会话销毁即时释放"]
-```
+- 🚀 **并行开发零干扰**：多个会话同时对同一项目执行重构、分析或测试，产物互不交叉。
+- 🛡️ **无感平滑升级**：不受 DSH 小版本架构调整影响，插件长久稳定运行。
+- 📂 **侧边栏清爽如初**：所有会话紧密附着于所属工作区，消除孤儿会话打扰。
+- 🧹 **磁盘常态零负担**：废弃临时目录自动清理，保持本地环境轻盈纯净。
+
+| 侧边栏原生聚合 (DSH 界面) | 物理沙箱隔离 (Finder 真实目录) |
+| :---: | :---: |
+| <img src="https://raw.githubusercontent.com/MDX-Tom/dsh-scratch-workspace/main/assets/02-sidebar-workspace-grouping.png" width="280" alt="侧边栏工作区归集效果" /> | <img src="https://raw.githubusercontent.com/MDX-Tom/dsh-scratch-workspace/main/assets/01-finder-isolated-folders.png" width="280" alt="Finder 目录隔离效果" /> |
+| **顶层统一归集**：会话在侧边栏完整归属母工作区，拒绝臃肿碎片化，保持工作区清爽 | **底层物理隔离**：每个会话分配专属 `session-<标题>-<ID>` 子目录，改名实时就地同步，产物互不踩踏 |
+
+| 交互式斜杠指令 (Slash Command) | ⭐ 即时状态看板与向导 (/scratch) |
+| :---: | :---: |
+| <img src="https://raw.githubusercontent.com/MDX-Tom/dsh-scratch-workspace/main/assets/03-slash-command-menu.png" width="240" alt="斜杠指令菜单" /><br/><br/><img src="https://raw.githubusercontent.com/MDX-Tom/dsh-scratch-workspace/main/assets/04-slash-command-args.png" width="240" alt="子命令提示" /> | <img src="https://raw.githubusercontent.com/MDX-Tom/dsh-scratch-workspace/main/assets/05-scratch-status-card.png" width="580" alt="即时状态看板" /> |
+| **开箱即用的指令交互**：输入 `/scratch` 自动补全，支持 `status`、`enable`、`disable` 与 `gc` | **状态一目了然（核心看板）**：清晰展示母工作区映射、会话沙箱物理路径与快捷运维向导 |
+
+---
+
+## 架构与技术原理
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/MDX-Tom/dsh-scratch-workspace/main/assets/architecture.png" width="340" alt="架构与技术原理流程图" />
+</p>
 
 ### 核心方法与实现机制
 
@@ -70,27 +79,6 @@ flowchart TD
    - **实时释放**：监听会话删除事件，实时删除对应的沙箱目录。
    - **空闲回收**：对创建后超过 5 分钟且无实际文件产出的空沙箱进行静默清理。
    - **TTL 孤儿扫描**：后台每 30 分钟轮巡检测已无活动会话对应且超过 24 小时的孤儿目录。
-
----
-
-## 达到了什么效果
-
-- 🚀 **并行开发零干扰**：多个会话同时对同一项目执行重构、分析或测试，产物互不交叉。
-- 🛡️ **无感平滑升级**：不受 DSH 小版本架构调整影响，插件长久稳定运行。
-- 📂 **侧边栏清爽如初**：所有会话紧密附着于所属工作区，消除孤儿会话打扰。
-- 🧹 **磁盘常态零负担**：废弃临时目录自动清理，保持本地环境轻盈纯净。
-
-### 📸 视觉效果实测 / Visual Walkthrough
-
-| 物理沙箱隔离 (Finder 真实目录) | 侧边栏原生聚合 (DSH 界面) |
-| :---: | :---: |
-| <img src="https://raw.githubusercontent.com/MDX-Tom/dsh-scratch-workspace/main/assets/01-finder-isolated-folders.png" width="460" alt="Finder 目录隔离效果" /> | <img src="https://raw.githubusercontent.com/MDX-Tom/dsh-scratch-workspace/main/assets/02-sidebar-workspace-grouping.png" width="460" alt="侧边栏工作区归集效果" /> |
-| **底层物理隔离**：每个会话分配专属 `session-<标题>-<ID>` 子目录，改名实时就地同步，产物互不踩踏 | **顶层统一归集**：会话在侧边栏完整归属母工作区，拒绝臃肿碎片化，保持工作区清爽 |
-
-| 交互式斜杠指令 (Slash Command) | ⭐ 即时状态看板与向导 (/scratch) |
-| :---: | :---: |
-| <img src="https://raw.githubusercontent.com/MDX-Tom/dsh-scratch-workspace/main/assets/03-slash-command-menu.png" width="240" alt="斜杠指令菜单" /><br/><br/><img src="https://raw.githubusercontent.com/MDX-Tom/dsh-scratch-workspace/main/assets/04-slash-command-args.png" width="240" alt="子命令提示" /> | <img src="https://raw.githubusercontent.com/MDX-Tom/dsh-scratch-workspace/main/assets/05-scratch-status-card.png" width="580" alt="即时状态看板" /> |
-| **开箱即用的指令交互**：输入 `/scratch` 自动补全，支持 `status`、`enable`、`disable` 与 `gc` | **状态一目了然（核心看板）**：清晰展示母工作区映射、会话沙箱物理路径与快捷运维向导 |
 
 ---
 
