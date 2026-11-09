@@ -58,8 +58,22 @@ async function apply(ctx) {
     await renameSessionDirToTitle(sessionId, title, iso, reg, ctx, session)
   })
 
-  const webServer = ctx.get('webServer', false)
-  const offRoutes = webServer === undefined ? undefined : registerWebRoutes(ctx, webServer, iso)
+  let offRoutes = undefined
+  const setupWeb = (ws) => {
+    if (ws && !offRoutes) {
+      offRoutes = registerWebRoutes(ctx, ws, iso)
+    }
+  }
+
+  const initialWs = ctx.get?.('webServer', false) ?? ctx.root?.get?.('webServer', false) ?? ctx.webServer
+  if (initialWs) {
+    setupWeb(initialWs)
+  } else if (typeof ctx.inject === 'function') {
+    ctx.inject(['webServer'], (innerCtx) => {
+      const ws = innerCtx.get?.('webServer', false) ?? innerCtx.webServer
+      setupWeb(ws)
+    })
+  }
 
   ctx.logger?.info?.(
     `dsh-scratch-workspace ready: ${iso.roots().length} isolating director${iso.roots().length === 1 ? 'y' : 'ies'}`,

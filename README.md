@@ -121,16 +121,17 @@ dsh plugin --profile desktop add https://github.com/MDX-Tom/dsh-scratch-workspac
 
 ## 开启与控制隔离
 
-隔离状态以工作区目录内的 `.dsh-isolate` 标记文件作为持久化依据，设置随目录移动，也可在以下入口灵活控制：
+插件支持多种灵活的开启与控制方式：
 
-1. **对话内 Slash 命令**：
+1. **对话内 Slash 命令（推荐）**：
    在聊天输入框键入 `/scratch` 或 `/isolate` 即可调出交互命令，支持：
    - `/scratch status`：查看当前工作区隔离状态与草稿目录信息
-   - `/scratch enable`：为当前工作区开启沙箱隔离（写入 `.dsh-isolate`）
+   - `/scratch enable`：为当前工作区开启沙箱隔离（自动写入 `.dsh-isolate` 标记）
    - `/scratch disable`：关闭隔离
    - `/scratch gc`：立即执行磁盘垃圾清理，回收空闲与孤儿会话目录
-2. **默认工作区自动开启**：
-   默认工作区 (`default-workspace`) 自动享受沙箱隔离与草稿清理效果，无需任何手动配置。
+2. **目录标记文件 (`.dsh-isolate`) 与免配置自启**：
+   - **自定义工程/普通工作区**：在根目录下放置 `.dsh-isolate` 标记文件作为持久化依据，设置随目录与代码仓库移动。
+   - **默认工作区 (`default-workspace`)**：内置免配置自启，开箱即用，无需手动放置或生成标记文件。
 3. **Agent 智能调用 (LLM Tool)**：
    模型可自动调用 `session_isolation` 工具查看或切换隔离状态：
    - `action: "enable"`：为当前工作区开启隔离

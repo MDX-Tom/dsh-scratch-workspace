@@ -20,7 +20,10 @@ import {
   patchSessionCreate,
   patchWorkingDirectory,
   renameSessionDirToTitle,
+  resolveSessionDir,
 } from '../lib/patch.js'
+import { interceptOpenInApp, OPEN_IN_APP_OPEN_PATH } from '../lib/web.js'
+import { Readable } from 'node:stream'
 
 async function stage() {
   return await mkdtemp(join(tmpdir(), 'dsh-test-'))
@@ -495,6 +498,222 @@ test('archiveSession cleans empty session directory even when not tracked in iso
     // Empty folder must have been deleted from disk
     const exists = await stat(sessionFolder).then(() => true).catch(() => false)
     assert.equal(exists, false)
+
+    unpatch()
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('resolveSessionDir resolves renamed session directory on disk across restarts and stale cwds', async () => {
+  const root = await stage()
+  try {
+    const titledFolder = join(root, 'session-联网切换与依赖更新-f2c3b89c')
+    await mkdir(titledFolder, { recursive: true })
+
+    const iso = {
+      sessionPath: () => undefined,
+      roots: () => [root],
+      ownerOf: () => root,
+      rewritePath: p => p,
+      recordSessionPath: () => {},
+      recordRename: () => {},
+    }
+
+    const sessionId = 'session-f2c3b89c-de5f-4067-8f8a-f6f4d8a442f4'
+    const staleCwd = join(root, 'session-94dd46d5')
+
+    // 1. Resolve with sessionId provided
+    const resolved = await resolveSessionDir(staleCwd, { sessionId, iso })
+    assert.equal(resolved, titledFolder)
+
+    // 2. Resolve without sessionId but with ctx.sessions session header lookup
+    const ctx = {
+      sessions: {
+        list: () => [{ id: sessionId, header: { cwd: staleCwd } }],
+      },
+    }
+    const resolvedFromCtx = await resolveSessionDir(staleCwd, { iso, ctx })
+    assert.equal(resolvedFromCtx, titledFolder)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('patchSessionCreate hooks sessionController.list to update item.cwd to on-disk directory', async () => {
+  const root = await stage()
+  try {
+    const titledFolder = join(root, 'session-排查原因-f2c3b89c')
+    await mkdir(titledFolder, { recursive: true })
+
+    const iso = {
+      sessionPath: () => undefined,
+      roots: () => [root],
+      ownerOf: () => root,
+      rewritePath: p => p,
+      recordSessionPath: () => {},
+      recordRename: () => {},
+      settledRegistry: async () => {},
+      workspaceRoot: () => undefined,
+    }
+
+    const sessionId = 'session-f2c3b89c-de5f-4067-8f8a-f6f4d8a442f4'
+    const staleCwd = join(root, 'session-94dd46d5')
+
+    const fakeController = {
+      async create() {},
+      async list() {
+        return {
+          items: [{ sessionId, cwd: staleCwd, title: '排查原因' }],
+        }
+      },
+      listState: {
+        async list() {
+          return [{ sessionId, cwd: staleCwd, title: '排查原因' }]
+        },
+      },
+    }
+
+    const ctx = {
+      sessionController: fakeController,
+      workspaceRegistry: { get: () => undefined },
+    }
+
+    const unpatch = patchSessionCreate(ctx, iso)
+
+    const listRes = await fakeController.list()
+    assert.equal(listRes.items[0].cwd, titledFolder)
+
+    const stateListRes = await fakeController.listState.list()
+    assert.equal(stateListRes[0].cwd, titledFolder)
+
+    unpatch()
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('patchSessionCreate hooks sessionController.openWorkspacePath to rewrite stale path', async () => {
+  const root = await stage()
+  try {
+    const titledFolder = join(root, 'session-排查原因-f2c3b89c')
+    await mkdir(titledFolder, { recursive: true })
+
+    const iso = {
+      sessionPath: () => undefined,
+      roots: () => [root],
+      ownerOf: () => root,
+      rewritePath: p => p,
+      recordSessionPath: () => {},
+      recordRename: () => {},
+      settledRegistry: async () => {},
+      workspaceRoot: () => undefined,
+    }
+
+    const sessionId = 'session-f2c3b89c-de5f-4067-8f8a-f6f4d8a442f4'
+    const staleCwd = join(root, 'session-94dd46d5')
+
+    let receivedPath = undefined
+    const fakeController = {
+      async create() {},
+      async openWorkspacePath(request) {
+        receivedPath = request?.path
+        return { opened: true }
+      },
+    }
+
+    const ctx = {
+      sessionController: fakeController,
+      workspaceRegistry: { get: () => undefined },
+      sessions: {
+        list: () => [{ id: sessionId, header: { cwd: staleCwd } }],
+      },
+    }
+
+    const unpatch = patchSessionCreate(ctx, iso)
+
+    await fakeController.openWorkspacePath({ path: staleCwd })
+    assert.equal(receivedPath, titledFolder)
+
+    unpatch()
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('interceptOpenInApp rewrites stale directory in POST /open-in-app/open before executing handler', async () => {
+  const root = await stage()
+  try {
+    const titledFolder = join(root, 'session-联网切换与依赖更新-f2c3b89c')
+    await mkdir(titledFolder, { recursive: true })
+
+    const iso = {
+      sessionPath: () => undefined,
+      roots: () => [root],
+      ownerOf: () => root,
+      rewritePath: p => p,
+      recordSessionPath: () => {},
+      recordRename: () => {},
+    }
+
+    const sessionId = 'session-f2c3b89c-de5f-4067-8f8a-f6f4d8a442f4'
+    const staleCwd = join(root, 'session-94dd46d5')
+
+    const ctx = {
+      sessions: {
+        list: () => [{ id: sessionId, header: { cwd: staleCwd } }],
+      },
+    }
+
+    let parsedBody = null
+    const originalHandler = async (req, res) => {
+      const chunks = []
+      for await (const chunk of req) chunks.push(chunk)
+      parsedBody = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+      res.statusCode = 200
+      res.end()
+    }
+
+    const routes = new Map()
+    const fakeWebServer = {
+      exact: routes,
+      register(route) {
+        routes.set(route.path, route)
+        return () => routes.delete(route.path)
+      },
+    }
+
+    // Register original open-in-app route
+    fakeWebServer.register({
+      kind: 'exact',
+      path: OPEN_IN_APP_OPEN_PATH,
+      handler: originalHandler,
+    })
+
+    // Install interceptor
+    const unpatch = interceptOpenInApp(fakeWebServer, iso, ctx)
+
+    // Simulate incoming POST /open-in-app/open request with stale cwd
+    const reqBody = Buffer.from(JSON.stringify({ app: 'finder', path: staleCwd }))
+    const req = Object.assign(Readable.from([reqBody]), {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'content-length': String(reqBody.length),
+      },
+    })
+    const res = {
+      statusCode: 0,
+      end() {},
+    }
+
+    const handler = fakeWebServer.exact.get(OPEN_IN_APP_OPEN_PATH).handler
+    await handler(req, res)
+
+    // The handler should have received the rewritten existing directory
+    assert.ok(parsedBody)
+    assert.equal(parsedBody.app, 'finder')
+    assert.equal(parsedBody.path, titledFolder)
 
     unpatch()
   } finally {
